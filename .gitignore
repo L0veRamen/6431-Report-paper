@@ -1,0 +1,34 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.synctex.gz
+*.synctex(busy)
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.xdv
+
+# Compiled output
+*.pdf
+
+# Office temp files
+~$*
+*.docx
+
+# Local working material (not part of the tracked report)
+.audit/
+tmp/
+summaries/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
