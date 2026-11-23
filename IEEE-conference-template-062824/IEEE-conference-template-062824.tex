@@ -1,15 +1,15 @@
 \documentclass[conference]{IEEEtran}
 \usepackage{cite}
-\usepackage{amsmath,amssymb}
 \usepackage{url}
-\usepackage{balance}
 \usepackage[hidelinks]{hyperref}
 
-\newcommand{\reporttitle}{Technical Debt in Large Language Model Applications}
-\newcommand{\reportabstract}{Large language model applications depend on prompts, generation settings, and software frameworks that require continuing maintenance. This report reviews PromptDebt, an empirical study of self-admitted technical debt in LLM projects. The study identifies five categories of LLM-specific debt in developer comments, with prompt debt the most frequent among those categories. We examine its methodology, findings, and limitations, then discuss whether prompts should receive the same maintenance discipline as source code. We argue for explicit ownership and version control, with evaluation effort proportional to application risk. Future research should connect documented debt to maintenance costs and test whether proposed practices reduce subsequent rework.}
-\newcommand{\reportkeywords}{large language models, technical debt, prompt engineering, software maintenance}
+\newcommand{\reporttitle}{Large Language Models in Software Security: Vulnerability Introduction, Detection, and Repair}
+\newcommand{\reportabstract}{Large language models (LLMs) can assist software security reviews while introducing risks through the code and dependencies they recommend. This report synthesizes five studies on insecure code generation, developer confidence, hallucinated software packages, vulnerability detection, and automated repair. Coding assistants can suggest insecure implementations and nonexistent dependencies, and developers may overestimate the security of assisted code. Detection benchmarks reveal missed vulnerabilities, false alarms, and faulty explanations, while repair studies find that producing correct patches for historical vulnerabilities remains difficult. We argue that model outputs can guide review and propose a controlled study to measure their effect on confirmed findings, review time, and repair correctness.}
+\newcommand{\reportkeywords}{large language models, software security, vulnerability detection, automated repair}
 
 \title{\reporttitle}
+\author{}
+\hypersetup{pdftitle={\reporttitle}}
 
 \begin{document}
 \onecolumn
@@ -18,8 +18,7 @@
 \vspace*{0.7in}
 {\LARGE\bfseries \reporttitle\par}
 \vspace{0.35in}
-Chen Qian \quad 27867808\\[0.08in]
-[Teammate names] \quad [Teammate student IDs]
+Chen Qian \quad 27867808
 \end{center}
 
 \vspace{0.3in}
@@ -30,9 +29,15 @@ Chen Qian \quad 27867808\\[0.08in]
 \hline
 \textbf{Student ID} & \textbf{Name} & \textbf{Contribution} \\
 \hline
-27867808 & Chen Qian & Reviewed PromptDebt; drafted Sections~I--V and the reference for group revision. \\
+[Pending] & [Pending] & Part 1: Security of GitHub Copilot's code contributions. \\
 \hline
-[Teammate ID] & [Teammate name] & [Reviewed paper and contributed sections to be added.] \\
+[Pending] & [Pending] & Part 2: Developer behavior with AI coding assistants. \\
+\hline
+[Pending] & [Pending] & Part 3: Package hallucinations and supply-chain risk. \\
+\hline
+27867808 & Chen Qian & Reviewed Ullah et al. on vulnerability detection and reasoning (Section~\ref{sec:vulnerability-detection}). \\
+\hline
+[Pending] & [Pending] & Part 5: Zero-shot vulnerability repair. \\
 \hline
 \end{tabular}
 
@@ -58,68 +63,57 @@ Chen Qian \quad 27867808\\[0.08in]
 \reportkeywords
 \end{IEEEkeywords}
 
-% GROUP REVISION: Integrate teammates' findings into the shared sections when their reviews are available.
 \section{Introduction}\label{sec:introduction}
-Large language models (LLMs) support applications that generate text, answer questions, and process natural-language information. Developers shape these applications through prompts, generation settings, and integration frameworks. Incomplete instructions or deferred configuration improvements can create maintenance obligations as requirements change. Technical debt provides a way to examine these unresolved deficiencies and their possible future costs~\cite{aljohani2025promptdebt}.
+Large language models (LLMs) can write code, suggest dependencies, explain suspicious behavior, and propose repairs. These uses bring LLMs into software development when developers introduce changes and when they assess the security of those changes. A suggestion can implement the requested feature while weakening an existing security check. A developer who uses a model to inspect the change can receive a plausible explanation that overlooks the weakness. Both possibilities matter when the developer decides whether the change is ready to merge.
 
-This report reviews PromptDebt as a contribution to the group's study of technical debt in LLM applications. Aljohani and Do investigate self-admitted technical debt (SATD), which developers explicitly acknowledge in source-code comments. Their analysis identifies concerns involving prompts, hyperparameters, integrated frameworks, costs, and learning strategies~\cite{aljohani2025promptdebt}. These findings provide concrete examples of maintenance work associated with LLM integration.
+The first three studies look at how risks arise. Pearce et al. document vulnerabilities in GitHub Copilot's suggestions under security-sensitive scenarios~\cite{pearce2025copilot}. Perry et al. find that participants given an AI assistant wrote less secure code overall and were more likely to believe their solutions were secure in the study's programming tasks~\cite{perry2023insecure}. Spracklen et al. show that models also recommend nonexistent packages, creating a risk when developers accept a dependency without verifying its identity and source~\cite{spracklen2025packages}.
 
-We examine the study's motivation, methodology, findings, and limitations. We then discuss whether prompts should receive the same maintenance discipline as conventional source code and propose research that could test the value of such practices. Throughout the review, we distinguish the frequency of recorded debt from its severity and repayment cost.
+The next two studies ask how well LLMs can help address such risks. Ullah et al. evaluate whether models can identify vulnerabilities in existing code and correctly explain their decisions~\cite{ullah2024secllmholmes}. Pearce et al. evaluate whether models can propose repairs without worked examples and examine the difficulty of repairing historical vulnerabilities~\cite{pearce2023repair}. Together, the studies motivate a practical question: what evidence should a developer require before accepting a model-generated suggestion, security verdict, or patch? The five studies inform this question by testing different tasks and measuring different outcomes.
 
-The remainder of the paper is organized as follows. Section~\ref{sec:background} introduces the relevant background concepts. Section~\ref{sec:reviews} presents the paper review. Section~\ref{sec:discussion} examines the controversial statement, competing arguments, and future research directions. Section~\ref{sec:conclusions} summarizes the main conclusions.
+Section~\ref{sec:background} introduces the relevant security concepts. Section~\ref{sec:reviews} presents the individual reviews. Section~\ref{sec:discussion} considers whether an LLM verdict should be sufficient to approve generated code and proposes a study of assisted review. Section~\ref{sec:conclusions} summarizes the implications for software development.
 
-% GROUP REVISION: Add background concepts required by teammates' papers.
 \section{Background}\label{sec:background}
-\subsection{LLM applications and prompt engineering}
-LLMs learn patterns from large text collections and generate text in response to an input. Applications often access them through an application programming interface (API). A prompt supplies instructions, context, examples, or an expected output format. Prompt engineering is the process of designing and revising these inputs. Zero-shot prompting provides no task examples, while few-shot prompting includes examples to guide the response~\cite{aljohani2025promptdebt}.
+\subsection{Code generation and security risks}
+An LLM generates text conditioned on inputs such as instructions, surrounding source code, and examples. A coding assistant can use that context to suggest a function, a library call, or an entire implementation. An implementation can pass tests for expected inputs while handling untrusted data incorrectly. Evaluating generated code therefore requires checking security properties alongside ordinary functionality. Developer confidence is a distinct concern because it can affect how closely a suggestion is reviewed~\cite{pearce2025copilot,perry2023insecure}.
 
-\subsection{Technical debt and developer acknowledgments}
-Technical debt arises when development decisions leave deficiencies unresolved or defer improvements that may require future work. SATD is the portion developers explicitly acknowledge, for example in comments describing incomplete implementations. Such comments make recognized problems observable, but exclude undocumented debt. Prompt debt concerns deficiencies in prompt artifacts, such as unclear instructions, incomplete templates, or missing output-format requirements~\cite{aljohani2025promptdebt}.
+A package hallucination occurs when generated code or instructions refer to a package that does not exist in the relevant package registry. Such a suggestion can break a build. It also presents a software supply-chain risk if a package with that name later becomes available from an untrusted publisher. Package checks therefore need to establish both the identity and the source of the proposed dependency~\cite{spracklen2025packages}.
 
-\subsection{Generation settings, frameworks, and adaptation}
-Generation settings, including temperature and output-token limits, influence response variability and length. Integration frameworks organize model calls, prompt templates, and response processing. These choices can create maintenance obligations when configuration or integration work remains incomplete. Token consumption also affects application costs. Adaptation techniques include fine-tuning, which updates model parameters through training, and in-context learning, which uses information or examples supplied in the prompt~\cite{aljohani2025promptdebt}.
+\subsection{Vulnerability detection and repair}
+The Common Weakness Enumeration (CWE) classifies recurring weaknesses. Common Vulnerabilities and Exposures (CVE) identifiers refer to individual disclosed vulnerabilities. Benchmark scenarios can pair a vulnerable version with a patched one and ask a model whether the specified weakness is present. A false positive flags code where the specified weakness is absent, while a false negative misses code where it is present. A correct verdict can accompany a faulty account of the code's behavior, so the explanation warrants separate evaluation~\cite{ullah2024secllmholmes}.
 
-% GROUP REVISION: All five members share a maximum of two IEEE-formatted pages for this section.
-% Each review should occupy approximately one-fifth of that space, including its headings.
+Zero-shot prompting gives the model a task without worked examples. Few-shot prompting provides examples to guide its response. Prompt choice can affect detection results~\cite{ullah2024secllmholmes}. For repair, the model proposes a source change. A candidate patch needs checks for both removal of the weakness and preservation of intended behavior. Passing a syntax check or removing a pattern flagged by a tool provides only partial evidence of repair correctness~\cite{pearce2023repair}.
+
+% The five individual reviews share a two-page limit, including their headings.
 \section{Individual Paper Reviews}\label{sec:reviews}
-\subsection{PromptDebt: A Comprehensive Study of Technical Debt Across LLM Projects}
-\subsubsection{Motivation}
-Aljohani and Do~\cite{aljohani2025promptdebt} investigate maintenance concerns specific to LLM applications that earlier SATD research had not fully characterized. They examine recorded debt, identify LLM-specific categories, and analyze associated prompting techniques.
+\subsection{Asleep at the Keyboard? Assessing the Security of GitHub Copilot's Code Contributions}
+\emph{Pending teammate review.}
 
-\subsubsection{Methodology}
-The study analyzes Python files from PromptSet, collected from 37,944 GitHub repositories in January 2024. Automated detection identifies 6,042 SATD comments among 340,840 cleaned comments. Two investigators independently categorize a stratified sample of 998 comments, achieving Cohen's kappa of 0.74. A third investigator resolves disagreements.
+\subsection{Do Users Write More Insecure Code with AI Assistants?}
+\emph{Pending teammate review.}
 
-\subsubsection{Findings}
-The manual sample contains prompt debt (66 instances), hyperparameter debt (45), integrated-framework debt (43), cost debt (21), and learning debt (6). Prompt debt is the largest of these five categories, representing 6.61\% of the full 998-comment sample. Examples include incomplete templates, unclear instructions, and missing output-format specifications. These results concern acknowledged deficiencies rather than the prevalence of all debt in LLM systems~\cite[Table~3]{aljohani2025promptdebt}.
+\subsection{We Have a Package for You! A Comprehensive Analysis of Package Hallucinations by Code Generating LLMs}
+\emph{Pending teammate review.}
 
-\subsubsection{Conclusions}
-The authors recommend reusable templates, parameter evaluation, structured response handling, and deliberate model selection. The taxonomy supports treating prompts and configuration as maintained artifacts. However, comment frequency does not measure severity or repayment cost. Selected Python repositories and inconsistent prompt-technique totals limit interpretation. The proposed remedies still require empirical evaluation~\cite{aljohani2025promptdebt}.
+\input{part4-vulnerability-detection}
 
-% GROUP REVISION: Insert the other four members' reviews here, retaining the four required headings.
+\subsection{Examining Zero-Shot Vulnerability Repair with Large Language Models}
+\emph{Pending teammate review.}
 
-% GROUP REVISION: Reassess the arguments when evidence from teammates' papers is incorporated.
 \section{Controversial Statement and Discussion}\label{sec:discussion}
 \subsection{Statement and competing arguments}
-\textit{Prompt engineering should receive the same maintenance discipline as conventional source code.} Here, maintenance discipline includes ownership, version control, review, and regression evaluation. The statement is controversial because prompts affect application behavior, yet their outputs depend on model behavior and generation settings. Applying conventional practices also adds effort during rapid experimentation.
+\textit{An LLM's security verdict should be enough to approve AI-generated code.} A model can review a change as soon as it is proposed, identify suspicious operations, and explain where a developer should look. If the verdict were reliable, automating approval could shorten the review cycle and free reviewers to focus on complex changes. GPT-4's performance on selected handcrafted cases illustrates the potential of this approach~\cite{ullah2024secllmholmes}.
 
-The supporting argument is that prompts encode instructions on which application behavior depends. PromptDebt documents incomplete templates, unclear instructions, and missing output-format specifications~\cite{aljohani2025promptdebt}. Version control and review could make these deficiencies easier to trace, while repeated evaluation could reveal unwanted changes. These are reasons to investigate such practices, rather than benefits established by the study.
+A missed vulnerability can reach production, a false alarm can delay a correct change, and an incorrect explanation can lead a developer to change the wrong code. Perry et al.'s user study suggests that confidence in AI-assisted work can exceed its measured security~\cite{perry2023insecure}. Ullah et al. found errors on code from real projects even after selecting prompts on handcrafted cases~\cite{ullah2024secllmholmes}. When a change uses a suggested package or a proposed patch, the approval decision also requires checking package provenance or validating patch behavior~\cite{spracklen2025packages,pearce2023repair}.
 
-The opposing argument is that equivalent procedures may impose disproportionate costs. Exploratory prompts change frequently, and repeated model calls consume time and resources. Variable responses also make exact-output tests less useful for some tasks. A prompt may produce different results after a model update even when its text remains unchanged. These considerations suggest that conventional code-maintenance procedures require adaptation.
+We support using LLM findings to prioritize inspection. For security-sensitive changes, the reviewer should verify the relevant behavior and use existing tests, analysis tools, and dependency checks to inform the approval decision.
 
-Our position is that prompts need explicit ownership and version history, while review and evaluation should reflect application risk. Exploratory work can use lightweight checks. Production applications should evaluate representative tasks against defined quality criteria and record the model and settings used. PromptDebt motivates this position, but does not establish the most effective process or evaluation frequency.
-
-% GROUP REVISION: Combine these directions with the research gaps identified by other members.
 \subsection{Future research directions}
-We expect research to move from counting debt comments toward measuring their consequences. Longitudinal studies could follow prompt and configuration changes, subsequent defects, token costs, and remediation effort. This direction is justified because PromptDebt identifies recurring concerns without measuring their severity or the benefits of repayment~\cite{aljohani2025promptdebt}.
+A controlled study could randomly assign reviewers to standard review or the same workflow with LLM assistance. Both groups would review comparable changes drawn from projects held out during prompt selection, including both vulnerable and patched versions. Independent assessors would measure confirmed findings, missed vulnerabilities, false alarms, review time, and whether accepted repairs remove the weakness while preserving intended behavior. This design connects benchmark scores to the decisions developers make during review~\cite{perry2023insecure,ullah2024secllmholmes,pearce2023repair}.
 
-A second direction is controlled evaluation of maintenance practices. Studies could compare reusable templates, prompt review, and regression evaluation against existing workflows, measuring later rework as well as evaluation costs. Broader evidence from industrial projects, additional languages, and developer interviews would help assess undocumented debt and the applicability of the taxonomy. These studies would clarify which practices deserve priority and when their benefits justify their costs.
-
-% GROUP REVISION: Extend this synthesis after all five reviews have been incorporated.
-\balance
 \section{Conclusions}\label{sec:conclusions}
-PromptDebt identifies five categories of LLM-specific SATD and shows that prompts and configuration create maintenance obligations alongside conventional code. Prompt debt is the most frequent of those five categories in the manual sample. The study provides a useful taxonomy, but recorded occurrences cannot establish debt severity or the effectiveness of proposed remedies~\cite{aljohani2025promptdebt}.
+The five studies illustrate how LLMs can introduce risk through insecure code and unreliable dependency suggestions, and how developer confidence can affect scrutiny of those contributions. Models can also help identify suspicious code and suggest repairs. In the studies reviewed, they missed vulnerabilities, raised false alarms, gave faulty explanations, and produced candidate patches that required further validation. The results reflect the models and conditions in each study.
 
-We support explicit prompt ownership and version control, with evaluation proportional to application risk. Future work should connect documented debt to observed maintenance outcomes and test whether particular practices reduce rework enough to justify their costs.
+Model output can help reviewers decide where to look and which fixes to consider. Approval should depend on verified code behavior and dependency provenance. Future experiments should measure whether adding model assistance to established review practices improves security outcomes and reduces the time required to verify changes.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
