@@ -1,0 +1,14 @@
+\subsection{We Have a Package for You! A Comprehensive Analysis of Package Hallucinations by Code Generating LLMs}
+\label{sec:package-hallucinations}
+
+\subsubsection{Motivation}
+Spracklen et al.~\cite{spracklen2025packages} investigate package hallucinations, in which code-generating LLMs recommend nonexistent packages in ecosystems such as PyPI and npm. Attackers can exploit recurring fictitious names in package confusion attacks by publishing malicious packages under those names for developers to install.
+
+\subsubsection{Methodology}
+The authors evaluated 16 commercial and open-source LLMs across two prompt datasets derived from package descriptions and Stack Overflow questions. They generated 576,000 Python and JavaScript code samples and checked extracted imports and installation commands against official PyPI and npm registries. They also tested how temperature, repeated queries, and pre-generation mitigations affected hallucination rates~\cite[Secs.~4--6]{spracklen2025packages}.
+
+\subsubsection{Findings}
+Overall, 19.7\% of recommended packages were fictitious, averaging at least 5.2\% for commercial models and 21.7\% for open-source models, and producing 205,474 unique hallucinated package names. Across 10 repeated runs of prompts that triggered hallucinations, 43\% of hallucinated names recurred in all 10 runs, making them predictable targets for attackers. Combining retrieval-augmented generation (RAG), self-refinement, and supervised fine-tuning reduced hallucinations by up to 85\% on DeepSeek and 64\% on CodeLlama, though fine-tuning lowered HumanEval pass@1 scores~\cite[Secs.~5--6]{spracklen2025packages}.
+
+\subsubsection{Conclusions}
+Because commercial evaluation covered only OpenAI models and newer models have since emerged, exact rates may vary across model families. Even with mitigations, hallucinations were not eliminated, so developers and build pipelines must verify package existence and provenance before installation~\cite[Secs.~6--7]{spracklen2025packages}.
